@@ -1,0 +1,28 @@
+---
+title: "Regularization, sparsity, resistance, and stability"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Regularization, sparsity, resistance, and stability}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>")
+library(CCAflow)
+```
+
+High-dimensional or ill-conditioned blocks should not be handled by maximizing unregularized sample correlation alone.
+
+```{r}
+d <- cca_simulate(n=80, p=35, q=30, scenario="collinear", seed=4)
+ridge <- cca_ridge(d$X,d$Y,lambda_x=.2,lambda_y=.2,ncomp=2)
+sparse <- cca_sparse(d$X,d$Y,ncomp=2,penalty_x=.1,penalty_y=.1,engine="internal")
+cv <- cca_validate(d$X,d$Y,"ridge",list(lambda_x=.2,lambda_y=.2,ncomp=2),folds=5,repeats=2,seed=4)
+```
+
+When contamination is scientifically plausible, compare rather than silently delete observations.
+
+```{r}
+o <- cca_simulate(n=100,scenario="outliers",seed=5)
+cmp <- cca_robust_compare(o$X,o$Y,robust_engine="winsor")
+```

@@ -1,0 +1,23 @@
+---
+title: "Canonical Correlation Learning Lab and projection tours"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Canonical Correlation Learning Lab and projection tours}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>")
+library(CCAflow)
+```
+
+The teaching layer connects algebra, interpretation and geometry.
+
+```{r, eval=requireNamespace("ggplot2",quietly=TRUE)}
+lab <- cca_teach(level="advanced",seed=3)
+tr <- cca_guided_tour(lab$fit,"x",frames=25)
+keys <- cca_tour_keyframes(tr,n=5,plots=TRUE)
+keys$plots[[1]]
+```
+
+When `spinifex` is installed, the retained basis path can be rendered dynamically with `cca_tour_render(tr, engine="spinifex")`.

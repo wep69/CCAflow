@@ -1,0 +1,36 @@
+---
+title: "Nonlinear, copula, mixed, probabilistic, Bayesian, and deep CCA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Nonlinear, copula, mixed, probabilistic, Bayesian, and deep CCA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>")
+library(CCAflow)
+```
+
+Kernel CCA models nonlinear cross-block association while preserving out-of-sample projection through the learned kernel-PCA representation.
+
+```{r}
+d <- cca_simulate(n=100,scenario="nonmonotone",seed=9)
+k <- cca_kernel(d$X,d$Y,kernel="rbf",lambda_x=.2,lambda_y=.2,ncomp=2)
+cop <- cca_copula(d$X,d$Y,ncomp=2)
+pcca <- cca_probabilistic(d$X,d$Y,ncomp=2,max_iter=100)
+```
+
+`cca_mixed()` delegates latent mixed-type estimation to `mixedCCA`; `cca_bayes()` uses the bundled Stan pCCA; and `cca_deep()` accepts a user-configured model or callbacks. These engines are optional and are not installed automatically.
+
+
+## CCA-Zoo bridge
+
+CCAflow can call already configured CCA-Zoo estimators through `reticulate`. It never installs or changes a Python environment.
+
+```{r, eval=FALSE}
+zlin <- cca_zoo(d$X, d$Y, model = "rCCA", module = "linear",
+                ncomp = 2, model_args = list(c = c(0.2, 0.2)))
+zk <- cca_zoo(d$X, d$Y, model = "KCCA", module = "nonparametric", ncomp = 2)
+```
+
+Deep architectures are kept in `cca_deep()` because model construction, optimizer choice, epochs, device selection, and training-state reset must remain explicit for reproducible resampling.

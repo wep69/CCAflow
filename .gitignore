@@ -1,0 +1,15 @@
+# History and session files
+.Rhistory
+.RData
+.RDataTmp
+.Rproj.user/
+
+# R CMD check/build artifacts
+*.Rcheck/
+*.tar.gz
+*.zip
+inst/doc/
+
+# Local validation scratch
+docs-examples-audit.md
+tests/testthat/_problems/

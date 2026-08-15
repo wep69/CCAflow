@@ -1,0 +1,32 @@
+---
+title: "Classical CCA, interpretation, and inference"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Classical CCA, interpretation, and inference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>")
+library(CCAflow)
+```
+
+CCA maximizes the correlation between paired linear combinations of two blocks. Interpretation should combine canonical correlations, coefficients, structure coefficients, cross-loadings, variance extracted and redundancy.
+
+```{r}
+d <- cca_agri_data(seed=11)
+fit <- cca_classic(d$X, d$Y, ncomp=3)
+cca_table(fit, "correlations")
+cca_table(fit, "loadings")
+cca_table(fit, "redundancy")
+```
+
+Classical asymptotic inference is available only for the unregularized classical fit. Permutation and bootstrap provide complementary evidence when their resampling assumptions match the design.
+
+```{r}
+inf <- cca_infer(fit)
+inf
+perm <- cca_permutation(fit, B=99, seed=11)
+boot <- cca_bootstrap(fit, B=99, seed=11)
+```

@@ -1,0 +1,10 @@
+^LOCAL_VALIDATION\.md$
+^STATE_OF_ART\.md$
+^ARCHITECTURE\.md$
+^FUNCTIONS\.md$
+^cran-comments\.md$
+^\.github$
+^CCAflow_.*\.(zip|tar\.gz|sha256)$
+^IMPLEMENTATION_STATUS\.md$
+^STATIC_VALIDATION_REPORT\.md$
+^MANIFEST\.sha256$

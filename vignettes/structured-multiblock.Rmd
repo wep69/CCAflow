@@ -1,0 +1,58 @@
+---
+title: "Functional, temporal, repeated-measures, multiway, and multiblock CCA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Functional, temporal, repeated-measures, multiway, and multiblock CCA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>")
+library(CCAflow)
+```
+
+Functional observations are represented with spline coefficients before CCA. Time-ordered data require validation that preserves ordering.
+
+```{r}
+f <- cca_simulate(n=60,scenario="functional",seed=7)
+ff <- cca_functional(f$X,f$Y,time_x=f$time_x,time_y=f$time_y,ncomp=2)
+
+d <- cca_simulate(n=100,scenario="linear",seed=8)
+dyn <- cca_dynamic(d$X,d$Y,lag=1,method="ridge",ncomp=2,lambda_x=.1,lambda_y=.1)
+tcv <- cca_validate_time(d$X,d$Y,"ridge",list(lambda_x=.1,lambda_y=.1,ncomp=2),initial=60,assess=5)
+```
+
+Multiblock adapters use `RGCCA` and `multiCCA` only when those packages are available.
+
+
+## Multiblock, tensor, and multiple functional/kernel engines
+
+`RGCCA` is an optional engine for generalized, regularized, sparse, and tensor GCCA. `multiCCA` is an optional engine for repeated-measures kernel MCCA and functional MCCA. CCAflow does not silently install these packages.
+
+```{r, eval=FALSE}
+sim3 <- cca_simulate(n = 80, scenario = "three_blocks", seed = 9)
+
+# Generalized / regularized / sparse GCCA
+mg <- cca_gcca(sim3$blocks, ncomp = 2)
+mr <- cca_rgcca(sim3$blocks, ncomp = 2, tau = "optimal")
+ms <- cca_sgcca(sim3$blocks, ncomp = 2, sparsity = 0.8)
+
+# Tensor GCCA preserves array structure rather than flattening it.
+A <- array(rnorm(60 * 4 * 3), c(60, 4, 3))
+B <- array(rnorm(60 * 3 * 2), c(60, 3, 2))
+mt <- cca_tgcca(list(A = A, B = B), ncomp = 2, rank = 1,
+                mode_orth = 1, separable = TRUE)
+
+# Unsupervised permutation tuning and supervised CV are kept distinct.
+perm_tune <- cca_multiblock_tune(sim3$blocks, engine = "RGCCA",
+                                 par_type = "tau", n_perms = 100)
+
+# The response argument is the index of the response block for RGCCA::rgcca_cv().
+cv_tune <- cca_multiblock_cv(sim3$blocks, response = 3,
+                             par_type = "tau", validation = "kfold",
+                             prediction_model = "lm", metric = "RMSE", k = 5)
+```
+
+For repeated-measures kernel or functional MCCA, every feature block must follow `multiCCA`'s subject-level structure: `blocks[[l]][[i]]` is a `time x variables` matrix for subject `i`. Hyperparameters can be searched with `cca_multiblock_tune(engine = "multiCCA", ...)`.
+
+These methods answer different scientific questions. Unsupervised permutation tuning seeks a multiblock association structure, while `cca_multiblock_cv()` is explicitly supervised and requires a declared response block. Tensor methods should be used only when the higher-order modes have scientific meaning; flattening remains available through `cca_multiway()` when a matrix representation is intentionally desired.

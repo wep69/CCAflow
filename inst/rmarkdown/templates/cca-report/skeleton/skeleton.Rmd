@@ -1,0 +1,23 @@
+---
+title: "Canonical Correlation Analysis Report"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(CCAflow)
+```
+
+## Analysis
+
+Create or load paired numeric blocks `X` and `Y`, then fit and validate the model.
+
+```{r, eval=FALSE}
+fit <- cca_fit(X, Y, method = "ridge", lambda_x = 0.1, lambda_y = 0.1)
+cca_audit(X, Y)
+cca_table(fit, "correlations")
+cca_plot(fit, "scree")
+cv <- cca_validate(X, Y, method = "ridge",
+                   params = list(lambda_x = 0.1, lambda_y = 0.1))
+plot(cv)
+```

@@ -1,0 +1,25 @@
+---
+title: "Publication-ready CCA workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Publication-ready CCA workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>")
+library(CCAflow)
+```
+
+A manuscript-ready analysis should report fit, interpretation, uncertainty/stability and generalization.
+
+```{r, eval=requireNamespace("ggplot2",quietly=TRUE)}
+d <- cca_agri_data(seed=15)
+fit <- cca_ridge(d$X,d$Y,.15,.15,ncomp=3)
+cv <- cca_validate(d$X,d$Y,"ridge",list(lambda_x=.15,lambda_y=.15,ncomp=3),folds=5,repeats=2,seed=15)
+cca_plot(fit,"dual_circle")
+cca_plot(cv)
+cca_table(fit,"cross_loadings")
+```
+
+Use vector PDF/SVG where possible and TIFF/PNG at appropriate journal resolution with `cca_export()`.

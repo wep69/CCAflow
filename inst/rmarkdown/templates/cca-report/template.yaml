@@ -1,0 +1,3 @@
+name: CCAflow canonical association report
+description: Reproducible report template for a fitted CCAflow model.
+create_dir: false

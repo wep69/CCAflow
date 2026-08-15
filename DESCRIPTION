@@ -1,0 +1,63 @@
+Package: CCAflow
+Type: Package
+Title: Integrated Canonical Correlation and Multiview Association Workflows
+Version: 0.1.0
+Date: 2026-08-14
+Authors@R: c(
+    person(given = c("Walter", "Esfrain"), family = "Pereira",
+           email = "walterufpb@yahoo.com.br", role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0000-0003-1085-0191"))
+    )
+Description: Provides an integrated workflow for canonical correlation analysis
+    and modern multiview association methods. Core functionality includes
+    classical, ridge, shrinkage, sparse, robust, rank, copula and kernel
+    canonical correlation analysis; canonical coefficients, structure
+    coefficients, cross-loadings, variance extracted and redundancy;
+    inferential, bootstrap, permutation, stability, cross-validation and nested
+    resampling tools; functional, dynamic, repeated-measures and multiway
+    helpers; adapters for mixed-data, multiblock, Bayesian and deep canonical
+    correlation engines; and publication-ready tables, graphics and educational
+    projection tours. The package deliberately separates in-sample association,
+    statistical inference, resampling stability and out-of-sample generalization.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: false
+URL: https://github.com/wep69/CCAflow
+BugReports: https://github.com/wep69/CCAflow/issues
+Depends: R (>= 4.2.0)
+Imports:
+    stats,
+    utils,
+    grDevices,
+    grid,
+    splines,
+    tools
+Suggests:
+    CCA,
+    CCP,
+    PMA,
+    RGCCA,
+    caret,
+    mixedCCA,
+    multiCCA,
+    corpcor,
+    robustbase,
+    MASS,
+    Matrix,
+    ggplot2,
+    plotly,
+    tourr,
+    spinifex,
+    gganimate,
+    flextable,
+    officer,
+    rmarkdown,
+    knitr,
+    rstan,
+    posterior,
+    reticulate,
+    svglite,
+    testthat (>= 3.0.0),
+    vdiffr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
