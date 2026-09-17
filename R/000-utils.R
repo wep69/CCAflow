@@ -24,6 +24,33 @@
   force(expr)
 }
 
+## Vocabulary of estimator names, shared with the cca_fit() dispatcher.
+.cca_methods <- function() eval(formals(cca_fit)$method)
+
+## Reject unknown method names before any resampling loop starts, so that a typo
+## cannot be mistaken for an empty but legitimate result.
+.cca_method_arg <- function(method) {
+  validos <- .cca_methods()
+  if (!is.character(method) || length(method) != 1L || !nzchar(method))
+    .cca_stop("method must be a single estimator name.")
+  if (!method %in% validos)
+    .cca_stop(sprintf("Unknown method '%s'. Valid methods are: %s.",
+                      method, paste(validos, collapse = ", ")))
+  method
+}
+
+## Shared check for paired prediction blocks: the two blocks must describe the
+## same units, in the same number.
+.cca_check_paired_newdata <- function(newdata_x, newdata_y) {
+  n_x <- if (is.null(newdata_x)) NA_integer_ else nrow(.cca_as_matrix(newdata_x, "newdata_x"))
+  n_y <- if (is.null(newdata_y)) NA_integer_ else nrow(.cca_as_matrix(newdata_y, "newdata_y"))
+  if (!is.na(n_x) && !is.na(n_y) && n_x != n_y)
+    .cca_stop(sprintf(paste0("newdata_x and newdata_y must have the same number of rows ",
+                             "(%d and %d were given). Paired canonical scores require paired ",
+                             "observations."), n_x, n_y))
+  invisible(TRUE)
+}
+
 .cca_as_matrix <- function(x, name = "X") {
   if (is.data.frame(x)) {
     bad <- vapply(x, function(z) is.factor(z) || is.character(z) || is.logical(z), logical(1))

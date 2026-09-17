@@ -1,7 +1,7 @@
 \name{predict.cca_fit}
 \alias{predict.cca_fit}\alias{predict.cca_rank}\alias{predict.cca_copula}\alias{predict.cca_kernel}\alias{predict.cca_robust_kernel}\alias{predict.cca_deep}\alias{predict.cca_zoo}
 \alias{print.cca_fit}\alias{summary.cca_fit}\alias{print.summary.cca_fit}\alias{print.cca_multiblock}\alias{print.cca_audit}\alias{print.cca_inference}
-\alias{print.cca_validation}\alias{print.cca_tuning}\alias{print.cca_nested_cv}\alias{print.cca_comparison}\alias{print.cca_tour}\alias{print.cca_teaching_lab}
+\alias{print.cca_validation}\alias{print.cca_tuning}\alias{print.cca_nested_cv}\alias{print.cca_comparison}\alias{print.cca_tour}\alias{print.cca_grand_tour}\alias{plot.cca_grand_tour}\alias{print.cca_teaching_lab}
 \alias{plot.cca_fit}\alias{plot.cca_robust_comparison}\alias{plot.cca_bootstrap}\alias{plot.cca_validation}\alias{plot.cca_permutation}\alias{plot.cca_comparison}\alias{plot.cca_tuning}\alias{plot.cca_stability}\alias{plot.cca_tour}
 \title{S3 methods for CCAflow objects}
 \description{Prediction, printing, summarization and plotting methods used by CCAflow object classes.}

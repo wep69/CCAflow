@@ -20,7 +20,7 @@ cca_report(object, file = "cca_report.md",
 }
 \arguments{
 \item{object}{CCAflow object.}
-\item{type}{Plot or table type.}
+\item{type}{Plot or table type. For \code{cca_plot()} on a fitted object the accepted keys are \code{"scree"}, \code{"scores"}, \code{"circle"}, \code{"dual_circle"}, \code{"loadings"}, \code{"cross_loadings"}, \code{"coefficients"}, \code{"biplot"}, \code{"redundancy"}, \code{"heatmap"}, \code{"network"}, \code{"sparsity"}, \code{"influence"} and \code{"communality"}. Figures of inference and validation are not drawn from a fit: build the companion object first and plot it (\code{plot(cca_bootstrap(fit))}, \code{plot(cca_validate(...))}, \code{plot(cca_permutation(...))}, \code{plot(cca_compare(...))}, \code{plot(cca_tune(...))}, \code{plot(cca_stability(...))}). \code{cca_plot()} also accepts those objects directly and maps \code{type} to the same route.}
 \item{interactive}{Convert supported ggplot outputs to plotly.}
 \item{base_size,base_family,grid}{Publication theme settings.}
 \item{n,grayscale}{Palette controls.}

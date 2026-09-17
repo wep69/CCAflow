@@ -90,15 +90,34 @@ cca_kernel <- function(X, Y, kernel = c("rbf", "linear", "polynomial"),
   out$refit_params <- out$tuning
   out$call <- match.call()
   out$inference_scope <- "resampling"
+  ## A radial kernel with a large gamma sends the Gram matrix towards the identity
+  ## and the fit interpolates: the training correlation approaches 1 even when the
+  ## blocks are independent. The tolerance is loose on purpose (1e-4): the reported
+  ## symptom was rho = 0.99999, not exactly 1, and a genuine association never sits
+  ## that close to the ceiling at these sample sizes.
+  if (any(out$correlations > 1 - 1e-4)) {
+    k <- which.max(out$correlations)
+    .cca_warn(sprintf(paste0("Canonical correlation %d is %.6f, within 1e-4 of the ceiling. ",
+                             "With a wide radial kernel this indicates memorisation rather than ",
+                             "association: inspect out-of-sample performance with cca_validate() ",
+                             "before interpreting the fit, and consider a smaller gamma or a ",
+                             "larger lambda."), k, out$correlations[k]))
+  }
   class(out) <- c("cca_kernel", "cca_fit")
   out
 }
 
 #' @export
 predict.cca_kernel <- function(object, newdata_x = NULL, newdata_y = NULL, ...) {
+  .cca_check_paired_newdata(newdata_x, newdata_y)
   ans <- list()
   if (!is.null(newdata_x)) {
     X <- .cca_as_matrix(newdata_x, "newdata_x")
+    ## Checked before scaling: otherwise the failure happens inside the
+    ## preprocessing and the message does not name the expected width.
+    if (ncol(X) != object$p)
+      .cca_stop(sprintf(paste0("newdata_x has %d variables; the fitted kernel model ",
+                             "expects %d."), ncol(X), object$p))
     Xs <- .cca_center_scale(X, center_values = object$input_center_x, scale_values = object$input_scale_x)$data
     K <- .cca_kernel_matrix(Xs, object$kernel_train_x, object$kernel,
                             object$kernel_params$gamma_x, object$kernel_params$degree,
@@ -109,6 +128,9 @@ predict.cca_kernel <- function(object, newdata_x = NULL, newdata_y = NULL, ...) 
   }
   if (!is.null(newdata_y)) {
     Y <- .cca_as_matrix(newdata_y, "newdata_y")
+    if (ncol(Y) != object$q)
+      .cca_stop(sprintf(paste0("newdata_y has %d variables; the fitted kernel model ",
+                             "expects %d."), ncol(Y), object$q))
     Ys <- .cca_center_scale(Y, center_values = object$input_center_y, scale_values = object$input_scale_y)$data
     K <- .cca_kernel_matrix(Ys, object$kernel_train_y, object$kernel,
                             object$kernel_params$gamma_y, object$kernel_params$degree,
@@ -127,8 +149,8 @@ cca_robust_kernel <- function(X, Y, kernel = c("rbf", "linear", "polynomial"),
                               gamma_x = NULL, gamma_y = NULL, degree = 2, coef0 = 1,
                               lambda_x = 0.1, lambda_y = 0.1, ncomp = 2,
                               robust_engine = c("winsor", "robustbase", "MASS", "auto"),
-                              winsor = 4.5, tol = 1e-10) {
-  rp <- .cca_robust_preprocess(X, Y, match.arg(robust_engine), winsor)
+                              winsor = 4.5, tol = 1e-10, seed = NULL) {
+  rp <- .cca_with_seed(seed, .cca_robust_preprocess(X, Y, match.arg(robust_engine), winsor))
   fit <- cca_kernel(rp$Xs, rp$Ys, kernel = match.arg(kernel), gamma_x = gamma_x, gamma_y = gamma_y,
                     degree = degree, coef0 = coef0, lambda_x = lambda_x, lambda_y = lambda_y,
                     ncomp = ncomp, center = FALSE, scale = FALSE, tol = tol)
@@ -138,7 +160,7 @@ cca_robust_kernel <- function(X, Y, kernel = c("rbf", "linear", "polynomial"),
   fit$robust_input_scale_x <- rp$scale_x; fit$robust_input_scale_y <- rp$scale_y
   fit$robust_distances <- rp$robust_distances; fit$robust_cov <- rp$raw_cov
   fit$original_X <- rp$X; fit$original_Y <- rp$Y; fit$X <- rp$X; fit$Y <- rp$Y; fit$p <- ncol(rp$X); fit$q <- ncol(rp$Y); fit$n <- nrow(rp$X)
-  fit$tuning$robust_engine <- rp$engine; fit$tuning$winsor <- winsor
+  fit$tuning$robust_engine <- rp$engine; fit$tuning$winsor <- winsor; fit$tuning$seed <- seed
   fit$refit_params <- fit$tuning
   class(fit) <- c("cca_robust_kernel", "cca_kernel", "cca_fit")
   fit
@@ -146,6 +168,15 @@ cca_robust_kernel <- function(X, Y, kernel = c("rbf", "linear", "polynomial"),
 
 #' @export
 predict.cca_robust_kernel <- function(object, newdata_x = NULL, newdata_y = NULL, ...) {
+  .cca_check_paired_newdata(newdata_x, newdata_y)
+  ## Counts are checked here, before any scaling, so the message names the
+  ## expectation instead of failing inside the preprocessing.
+  if (!is.null(newdata_x) && ncol(.cca_as_matrix(newdata_x, "newdata_x")) != object$p)
+    .cca_stop(sprintf(paste0("newdata_x has %d variables; the fitted kernel model ",
+                           "expects %d."), ncol(.cca_as_matrix(newdata_x, "newdata_x")), object$p))
+  if (!is.null(newdata_y) && ncol(.cca_as_matrix(newdata_y, "newdata_y")) != object$q)
+    .cca_stop(sprintf(paste0("newdata_y has %d variables; the fitted kernel model ",
+                           "expects %d."), ncol(.cca_as_matrix(newdata_y, "newdata_y")), object$q))
   # Convert raw new observations to the resistant standardized scale that was
   # supplied to cca_kernel(), whose own input centering/scaling is identity.
   nx <- if (is.null(newdata_x)) NULL else .cca_center_scale(.cca_as_matrix(newdata_x, "newdata_x"),

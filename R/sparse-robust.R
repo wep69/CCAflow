@@ -37,6 +37,16 @@
     if (sum(u^2) > 0) Xd <- Xd - (u %*% crossprod(u, Xd)) / sum(u^2)
     if (sum(v^2) > 0) Yd <- Yd - (v %*% crossprod(v, Yd)) / sum(v^2)
   }
+  if (!any(A != 0) || !any(B != 0)) {
+    if (!is.null(groups_x) || !is.null(groups_y)) {
+      .cca_stop(sprintf(paste0("Sparsity removed all weights (penalty_x = %g, penalty_y = %g). ",
+                               "Reduce the penalties or the group thresholds and retry."),
+                        penalty_x, penalty_y))
+    }
+    .cca_stop(sprintf(paste0("Sparsity removed all weights (penalty_x = %g, penalty_y = %g). ",
+                             "Reduce the penalties, or regularise instead of thresholding with ",
+                             "cca_ridge()/cca_elastic()."), penalty_x, penalty_y))
+  }
   list(A = A, B = B)
 }
 
@@ -47,7 +57,13 @@ cca_sparse <- function(X, Y, ncomp = 1, penalty_x = 0.1, penalty_y = 0.1,
                        center = TRUE, scale = TRUE,
                        na_action = c("fail", "complete"), max_iter = 200, tol = 1e-7) {
   engine <- match.arg(engine)
-  if (engine == "auto") engine <- if (requireNamespace("PMA", quietly = TRUE)) "PMA" else "internal"
+  if (engine == "auto") {
+    engine <- if (requireNamespace("PMA", quietly = TRUE)) "PMA" else "internal"
+    .cca_warn(sprintf(paste0("cca_sparse(engine = 'auto') selected the '%s' engine. The ",
+                             "penalty scales differ between engines (internal thresholds are ",
+                             "absolute; PMA penalties lie in (0, 1]). Set engine explicitly when ",
+                             "comparing penalties across machines."), engine))
+  }
   prep <- .cca_preprocess_pair(X, Y, center, scale, match.arg(na_action))
   if (engine == "PMA") {
     .cca_require("PMA", "cca_sparse(engine='PMA')")
@@ -173,8 +189,10 @@ cca_group_sparse <- function(X, Y, groups_x, groups_y, ncomp = 1,
 #' @export
 cca_robust <- function(X, Y, ncomp = NULL,
                        engine = c("winsor", "robustbase", "MASS", "auto"),
-                       winsor = 4.5, tol = 1e-10) {
-  rp <- .cca_robust_preprocess(X, Y, match.arg(engine), winsor)
+                       winsor = 4.5, tol = 1e-10, seed = NULL) {
+  ## The MCD engines draw random subsets: seed makes the fit reproducible and
+  ## recordable. The internal winsor engine is deterministic either way.
+  rp <- .cca_with_seed(seed, .cca_robust_preprocess(X, Y, match.arg(engine), winsor))
   p <- ncol(rp$X); q <- ncol(rp$Y)
   Sxx <- rp$cov[seq_len(p), seq_len(p), drop = FALSE]
   Syy <- rp$cov[p + seq_len(q), p + seq_len(q), drop = FALSE]
@@ -183,7 +201,7 @@ cca_robust <- function(X, Y, ncomp = NULL,
   prep <- rp[c("X", "Y", "Xs", "Ys", "center_x", "center_y", "scale_x", "scale_y")]
   fit <- .cca_make_fit(
     "robust", prep, sol$xcoef, sol$ycoef, engine = paste0("robust-", rp$engine),
-    tuning = list(ncomp = ncol(sol$xcoef), engine = rp$engine, winsor = winsor, tol = tol),
+    tuning = list(ncomp = ncol(sol$xcoef), engine = rp$engine, winsor = winsor, tol = tol, seed = seed),
     call = match.call(),
     extras = list(robust_cov = rp$raw_cov, robust_center = rp$robust_center,
                   robust_scale = rp$robust_scale, robust_distances = rp$robust_distances,
@@ -195,13 +213,14 @@ cca_robust <- function(X, Y, ncomp = NULL,
 
 #' Minimum covariance determinant CCA convenience wrapper
 #' @export
-cca_mcd <- function(X, Y, ncomp = NULL, engine = c("auto", "robustbase", "MASS"), tol = 1e-10) {
+cca_mcd <- function(X, Y, ncomp = NULL, engine = c("auto", "robustbase", "MASS"),
+                  tol = 1e-10, seed = NULL) {
   engine <- match.arg(engine)
   if (engine == "auto") engine <- if (requireNamespace("robustbase", quietly = TRUE)) "robustbase" else "MASS"
-  fit <- cca_robust(X, Y, ncomp = ncomp, engine = engine, tol = tol)
+  fit <- cca_robust(X, Y, ncomp = ncomp, engine = engine, tol = tol, seed = seed)
   fit$method <- "mcd"
   class(fit) <- c("cca_mcd", "cca_robust", "cca_fit")
-  fit$refit_params <- list(ncomp = ncol(fit$weights_x), engine = engine, tol = tol)
+  fit$refit_params <- list(ncomp = ncol(fit$weights_x), engine = engine, tol = tol, seed = seed)
   fit
 }
 
@@ -209,15 +228,15 @@ cca_mcd <- function(X, Y, ncomp = NULL, engine = c("auto", "robustbase", "MASS")
 #' @export
 cca_robust_sparse <- function(X, Y, ncomp = 1, penalty_x = 0.1, penalty_y = 0.1,
                               robust_engine = c("winsor", "robustbase", "MASS", "auto"),
-                              winsor = 4.5, max_iter = 200, tol = 1e-7) {
-  rp <- .cca_robust_preprocess(X, Y, match.arg(robust_engine), winsor)
+                              winsor = 4.5, max_iter = 200, tol = 1e-7, seed = NULL) {
+  rp <- .cca_with_seed(seed, .cca_robust_preprocess(X, Y, match.arg(robust_engine), winsor))
   sp <- .cca_sparse_internal(rp$Xs, rp$Ys, ncomp, penalty_x, penalty_y,
                              max_iter = max_iter, tol = tol)
   prep <- rp[c("X", "Y", "Xs", "Ys", "center_x", "center_y", "scale_x", "scale_y")]
   fit <- .cca_make_fit(
     "robust_sparse", prep, sp$A, sp$B, engine = paste0("robust-", rp$engine, "+internal-sparse"),
     tuning = list(ncomp = ncomp, penalty_x = penalty_x, penalty_y = penalty_y,
-                  robust_engine = rp$engine, winsor = winsor, max_iter = max_iter, tol = tol),
+                  robust_engine = rp$engine, winsor = winsor, max_iter = max_iter, tol = tol, seed = seed),
     call = match.call(), extras = list(robust_cov = rp$raw_cov, robust_center = rp$robust_center,
                                        robust_scale = rp$robust_scale, robust_distances = rp$robust_distances),
     inference_scope = "resampling"
@@ -272,6 +291,7 @@ cca_copula <- function(X, Y, ncomp = NULL, center = TRUE, scale = TRUE,
 
 #' @export
 predict.cca_rank <- function(object, newdata_x = NULL, newdata_y = NULL, ...) {
+  .cca_check_paired_newdata(newdata_x, newdata_y)
   ans <- list()
   if (!is.null(newdata_x)) {
     Xtr <- .cca_empirical_map_apply(newdata_x, object$transform_x)

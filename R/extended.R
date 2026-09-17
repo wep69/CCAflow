@@ -92,8 +92,18 @@ cca_bayes <- function(X, Y, ncomp = 2, center = TRUE, scale = TRUE,
   if (!nzchar(stan_file)) .cca_stop("The bundled Stan model could not be located.")
   dat <- list(n = nrow(prep$Xs), p = ncol(prep$Xs), q = ncol(prep$Ys), k = k,
               X = prep$Xs, Y = prep$Ys)
-  sf <- rstan::stan(file = stan_file, data = dat, chains = chains, iter = iter,
-                    warmup = warmup, seed = seed, refresh = refresh, ...)
+  ## Compiling a Stan model depends on the local toolchain and on a StanHeaders
+  ## version matching rstan; when that is broken rstan fails with an opaque I/O
+  ## error, so the environment is named explicitly here.
+  sf <- tryCatch(
+    rstan::stan(file = stan_file, data = dat, chains = chains, iter = iter,
+                warmup = warmup, seed = seed, refresh = refresh, ...),
+    error = function(e) .cca_stop(sprintf(paste0(
+      "The Bayesian engine could not compile or sample its Stan model: %s ",
+      "This is an environment problem rather than a model problem: rstan needs ",
+      "a working C++ toolchain and a StanHeaders version matching rstan. Check ",
+      "the installation with rstan::stan_model(model_code = ",
+      "\"parameters { real x; }\")."), conditionMessage(e))))
   ex <- rstan::extract(sf, pars = c("Wx", "Wy", "sigma_x", "sigma_y"), permuted = TRUE)
   nd <- dim(ex$Wx)[1]
   use <- seq_len(min(nd, as.integer(max_posterior_draws)))
@@ -187,6 +197,7 @@ cca_deep <- function(X, Y, model = NULL, model_factory = NULL,
 
 #' @export
 predict.cca_deep <- function(object, newdata_x = NULL, newdata_y = NULL, ...) {
+  .cca_check_paired_newdata(newdata_x, newdata_y)
   if (is.null(newdata_x) || is.null(newdata_y)) .cca_stop("Deep CCA prediction currently requires both paired blocks.")
   X <- .cca_center_scale(.cca_as_matrix(newdata_x, "newdata_x"), center_values = object$center_x, scale_values = object$scale_x)$data
   Y <- .cca_center_scale(.cca_as_matrix(newdata_y, "newdata_y"), center_values = object$center_y, scale_values = object$scale_y)$data
@@ -292,6 +303,7 @@ cca_zoo <- function(X, Y, model = "CCA",
 #' @export
 predict.cca_zoo <- function(object, newdata_x = NULL, newdata_y = NULL, ...) {
   if (is.null(newdata_x) || is.null(newdata_y)) .cca_stop("CCA-Zoo prediction requires both paired blocks.")
+  .cca_check_paired_newdata(newdata_x, newdata_y)
   X <- .cca_center_scale(.cca_as_matrix(newdata_x, "newdata_x"), center_values = object$center_x, scale_values = object$scale_x)$data
   Y <- .cca_center_scale(.cca_as_matrix(newdata_y, "newdata_y"), center_values = object$center_y, scale_values = object$scale_y)$data
   tr <- object$model$transform(reticulate::tuple(X, Y))
@@ -394,6 +406,10 @@ cca_dynamic <- function(X, Y, lag = 0L, method = "ridge", ncomp = 2, ...) {
 #' Repeated-measures long-to-wide CCA helper
 #' @export
 cca_repeated <- function(data, id, time, x_vars, y_vars, method = "ridge", ncomp = 2, ...) {
+  faltam <- setdiff(c(id, time, x_vars, y_vars), names(data))
+  if (length(faltam))
+    .cca_stop(sprintf("Column(s) not found in data: %s. Available columns: %s.",
+                      paste(faltam, collapse = ", "), paste(names(data), collapse = ", ")))
   if (!is.data.frame(data)) .cca_stop("data must be a data.frame.")
   ids <- data[[id]]; times <- data[[time]]
   uid <- unique(ids); ut <- sort(unique(times))
@@ -450,9 +466,18 @@ cca_rgcca <- function(blocks, ncomp = 2, connection = NULL, tau = "optimal",
   fit <- RGCCA::rgcca(blocks = blocks, connection = connection, tau = tau,
                       ncomp = ncomp, scheme = scheme, scale = scale,
                       method = method, sparsity = sparsity, ...)
+  tau_efetivo <- tryCatch(fit$tau, error = function(e) NULL)
+  if (is.null(tau_efetivo)) tau_efetivo <- tau
+  ncomp_pedido <- ncomp
+  ncomp_efetivo <- tryCatch(ncol(fit$Y[[1]]), error = function(e) NA_integer_)
+  if (!is.na(ncomp_efetivo) && !is.null(ncomp_pedido) && ncomp_efetivo < ncomp_pedido)
+    .cca_warn(sprintf(paste0("ncomp was reduced from %d to %d, the rank supported by the ",
+                             "blocks. The fitted object records the effective value."),
+                      as.integer(ncomp_pedido), as.integer(ncomp_efetivo)))
   out <- list(method = method, engine = "RGCCA::rgcca",
               fit = fit, blocks = blocks, components = fit$Y, weights = fit$a,
-              adjusted_weights = fit$astar, AVE = fit$AVE, call = match.call())
+              adjusted_weights = fit$astar, AVE = fit$AVE, call = match.call(),
+              tau = tau_efetivo, ncomp = ncomp_efetivo)
   class(out) <- c("cca_multiblock", "cca_rgcca")
   out
 }
@@ -488,6 +513,22 @@ cca_kernel_gcca <- function(blocks, method = c("kernel", "functional"), ncomp = 
                             basis_type = "fourier", argvals = NULL, ...) {
   .cca_require("multiCCA", "cca_kernel_gcca")
   method <- match.arg(method)
+  ## multiCCA expects one matrix per subject inside each block when
+  ## method = "kernel". A plain matrix would be read as a single subject and
+  ## inflate n to rows x columns, silently; method = "functional" keeps its
+  ## documented matrix shape.
+  ## is read as a single subject and inflates n to rows x columns, silently.
+  por_sujeito <- function(b) is.list(b) && length(b) > 0L &&
+    all(vapply(b, function(m) is.matrix(m) || is.data.frame(m), logical(1)))
+  if (identical(method, "kernel") && !all(vapply(blocks, por_sujeito, logical(1)))) {
+    .cca_stop(paste0("For cca_kernel_gcca(), each block must be a list with one matrix per ",
+                     "subject (rows = time, columns = variables). A matrix would be read as a ",
+                     "single subject and the sample size would be inflated to rows x columns."))
+  }
+  sujeitos <- if (identical(method, "kernel")) unique(vapply(blocks, length, integer(1))) else unique(vapply(blocks, NROW, integer(1)))
+  if (length(sujeitos) > 1L)
+    .cca_stop(sprintf(paste0("All blocks must contain the same number of subjects ",
+                             "(%s were given)."), paste(sujeitos, collapse = ", ")))
   fit <- multiCCA::mcca_fit(method = method, X = blocks, ncomp = ncomp, eps = eps,
                             gamma = gamma, nbasis = nbasis, basis_type = basis_type,
                             argvals = argvals, ...)
@@ -535,11 +576,17 @@ cca_multiblock_cv <- function(blocks, response, method = "rgcca",
                               connection = NULL, ...) {
   .cca_require("RGCCA", "cca_multiblock_cv")
   par_type <- match.arg(par_type); validation <- match.arg(validation)
+  ## The internal lm.fit warns once per partition about 'connection'; that warning
+  ## belongs to the engine, not to the caller's request.
+  withCallingHandlers(
   RGCCA::rgcca_cv(blocks = blocks, connection = connection, method = method,
                   response = response, par_type = par_type, par_value = par_value,
                   par_length = par_length, validation = validation,
                   prediction_model = prediction_model, metric = metric, k = k,
-                  n_run = n_run, n_cores = n_cores, ...)
+                  n_run = n_run, n_cores = n_cores, ...),
+  warning = function(w) {
+    if (grepl("extra argument", conditionMessage(w), fixed = TRUE)) invokeRestart("muffleWarning")
+  })
 }
 
 #' RGCCA bootstrap or SGCCA stability adapter
@@ -549,8 +596,14 @@ cca_multiblock_stability <- function(object, type = c("bootstrap", "stability"),
   .cca_require("RGCCA", "cca_multiblock_stability")
   type <- match.arg(type)
   fit <- if (inherits(object, "cca_multiblock")) object$fit else object
-  if (type == "bootstrap") RGCCA::rgcca_bootstrap(fit, n_boot = n_boot, ...)
-  else RGCCA::rgcca_stability(fit, n_boot = n_boot, ...)
+  if (type == "bootstrap") return(RGCCA::rgcca_bootstrap(fit, n_boot = n_boot, ...))
+  estavel <- tryCatch(RGCCA::rgcca_stability(fit, n_boot = n_boot, ...),
+                      error = function(e) e)
+  if (inherits(estavel, "error"))
+    .cca_stop(paste0("RGCCA stability selection requires a sparse fit. Refit with ",
+                     "cca_sgcca() (or cca_multiblock_tune(par_type = 'sparsity')) and pass that ",
+                     "object; the engine reported: ", conditionMessage(estavel)))
+  estavel
 }
 
 #' @export

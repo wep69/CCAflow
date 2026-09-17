@@ -156,7 +156,25 @@ cca_guided_tour <- function(object, block = c("x","y"), frames = 40, start = "pc
 cca_grand_tour <- function(object, block = c("x","y"), ...) {
   .cca_require("tourr","cca_grand_tour")
   block <- match.arg(block); data <- if(block=="x") object$Xs else object$Ys
-  structure(list(data=data,tour_path=tourr::grand_tour(),block=block,fit=object,args=list(...)),class="cca_grand_tour")
+  structure(list(data=data, tour_path=tourr::grand_tour(), block=block, fit=object,
+                 args=list(...)), class=c("cca_grand_tour", "cca_tour_path"))
+}
+
+#' @export
+print.cca_grand_tour <- function(x, ...) {
+  cat("CCAflow grand tour (tourr)\n",
+      "  Block:", x$block, "\n",
+      "  Observations:", nrow(x$data), "| variables:", ncol(x$data), "\n",
+      "  This object carries a tourr path, not a frame set: for figures use\n",
+      "  cca_tour() / cca_guided_tour() and cca_tour_render().\n", sep = "")
+  invisible(x)
+}
+
+#' @export
+plot.cca_grand_tour <- function(x, ...) {
+  .cca_stop(paste0("A grand tour has no fixed frame set to plot. Use cca_tour() or ",
+                   "cca_guided_tour() for figures and cca_tour_render() for rendering; ",
+                   "cca_grand_tour() is a path specification for tourr."))
 }
 
 #' Compare two fitted canonical bases through a projection path
@@ -184,6 +202,11 @@ cca_tour_keyframes <- function(tour, n = 6, strategy = c("even","objective"),
                                plots = FALSE, group = NULL) {
   if(!inherits(tour,"cca_tour")) .cca_stop("tour must inherit from 'cca_tour'.")
   strategy <- match.arg(strategy); N <- length(tour$bases); n <- min(n,N)
+  if (strategy == "objective" && is.null(tour$objective)) {
+    .cca_warn(paste0("strategy = 'objective' requires a tour carrying an objective trace ",
+                     "(cca_guided_tour()); this tour has none, so evenly spaced frames are ",
+                     "returned instead."))
+  }
   if(strategy=="objective" && !is.null(tour$objective)) {
     topn <- max(0L, n - 2L)
     extra <- if (topn) order(tour$objective,decreasing=TRUE)[seq_len(min(topn, length(tour$objective)))] else integer()

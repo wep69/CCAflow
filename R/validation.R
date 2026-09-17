@@ -26,6 +26,7 @@
 #' @export
 cca_validate <- function(X, Y, method = "classic", params = list(), folds = 5,
                          repeats = 5, seed = 1) {
+  method <- .cca_method_arg(method)
   if (identical(method, "deep") && !is.null(params$model) && is.null(params$model_factory) && is.null(params$fit_fun)) {
     .cca_stop("Deep CCA resampling must use model_factory or a stateless fit_fun so that each fold starts from a fresh model.")
   }
@@ -46,6 +47,11 @@ cca_validate <- function(X, Y, method = "classic", params = list(), folds = 5,
     }
   }
   tab <- if (length(results)) do.call(rbind, results) else data.frame()
+  if (!nrow(tab)) {
+    .cca_warn(sprintf(paste0("No fold produced a usable fit for method '%s'. Check the method name, ",
+                             "the parameters in 'params', and whether the data support the requested fit."),
+                      method))
+  }
   out <- list(method = method, params = params, results = tab, folds = folds,
               repeats = repeats, seed = seed, X = X, Y = Y)
   class(out) <- "cca_validation"
@@ -56,6 +62,7 @@ cca_validate <- function(X, Y, method = "classic", params = list(), folds = 5,
 #' @export
 cca_validate_time <- function(X, Y, method = "ridge", params = list(),
                               initial, assess = 5, skip = 0, cumulative = TRUE) {
+  method <- .cca_method_arg(method)
   pair <- .cca_pair(X, Y, finite = TRUE); X <- pair$X; Y <- pair$Y; n <- nrow(X)
   initial <- as.integer(initial); assess <- as.integer(assess); skip <- as.integer(skip)
   if (assess < 3L) .cca_stop("assess must contain at least three held-out observations so that correlation is estimable.")
@@ -84,6 +91,7 @@ cca_validate_time <- function(X, Y, method = "ridge", params = list(),
 #' @export
 cca_validate_grouped <- function(X, Y, groups, method = "ridge", params = list(),
                                  folds = 5, repeats = 3, seed = 1) {
+  method <- .cca_method_arg(method)
   pair <- .cca_pair(X, Y, finite = TRUE); X <- pair$X; Y <- pair$Y
   if (length(groups) != nrow(X)) .cca_stop("groups must have one value per row.")
   ug <- unique(groups); folds <- min(as.integer(folds), length(ug), floor(nrow(X) / 3L))
@@ -117,6 +125,7 @@ cca_validate_grouped <- function(X, Y, groups, method = "ridge", params = list()
 cca_tune <- function(X, Y, method, grid, fixed_params = list(), folds = 5,
                      repeats = 3, seed = 1, objective = c("first", "mean")) {
   objective <- match.arg(objective)
+  method <- .cca_method_arg(method)
   if (!is.data.frame(grid) || !nrow(grid)) .cca_stop("grid must be a non-empty data.frame.")
   rows <- vector("list", nrow(grid)); fits <- vector("list", nrow(grid))
   for (i in seq_len(nrow(grid))) {
@@ -148,6 +157,7 @@ cca_nested_cv <- function(X, Y, method, grid, fixed_params = list(), outer_folds
                           inner_folds = 4, inner_repeats = 2, seed = 1,
                           objective = c("first", "mean")) {
   objective <- match.arg(objective)
+  method <- .cca_method_arg(method)
   pair <- .cca_pair(X, Y, finite = TRUE); X <- pair$X; Y <- pair$Y
   outer_folds <- min(as.integer(outer_folds), floor(nrow(X) / 3L))
   if (outer_folds < 2L) .cca_stop("Nested CV requires enough observations for at least two outer assessment folds of size >= 3.")
@@ -180,12 +190,14 @@ cca_nested_cv <- function(X, Y, method, grid, fixed_params = list(), outer_folds
 cca_compare <- function(X, Y,
                         methods = c("classic", "ridge", "shrinkage", "sparse", "copula", "kernel"),
                         specs = list(), validate = TRUE, folds = 5, repeats = 3, seed = 1) {
+  methods <- vapply(as.character(methods), .cca_method_arg, character(1))
   rows <- list(); models <- list(); validations <- list(); pos <- 1L
   for (mth in methods) {
     pars <- specs[[mth]] %||% list()
     ff <- tryCatch(.cca_fit_method(mth, X, Y, pars), error = function(e) structure(list(error = conditionMessage(e)), class = "cca_fit_error"))
     models[[mth]] <- ff
     if (inherits(ff, "cca_fit_error")) {
+      .cca_warn(sprintf("Method '%s' failed and was recorded as NA: %s", mth, ff$error))
       rows[[pos]] <- data.frame(method = mth, training_rho1 = NA_real_, validation_rho1 = NA_real_,
                                 validation_abs_rho1 = NA_real_, validation_sd = NA_real_,
                                 selected_x = NA_integer_, selected_y = NA_integer_,

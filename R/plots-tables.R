@@ -42,7 +42,16 @@ theme_cca_publication <- function(base_size = 10, base_family = "", grid = FALSE
   pal <- cca_palette(8, grayscale)
   type <- match.arg(type, c("scree", "scores", "circle", "dual_circle", "loadings",
                             "cross_loadings", "coefficients", "biplot", "redundancy",
-                            "heatmap", "network", "sparsity", "influence"))
+                            "heatmap", "network", "sparsity", "influence",
+                            "communality"))
+  ## Companion objects feed the uncertainty layers of the scree figure only;
+  ## accepting them for other types in silence hides a no-op argument.
+  ignorados <- c(if (!is.null(bootstrap)) "bootstrap", if (!is.null(permutation)) "permutation")
+  if (length(ignorados) && type != "scree")
+    warning(sprintf(paste0("%s = is only used by type = 'scree'; it is ignored for ",
+                    "type = '%s'. Call cca_plot(object, 'scree', %s = ...) for the ",
+                    "uncertainty figure."),
+                    paste(ignorados, collapse = " and "), type, ignorados[1]), call. = FALSE)
   if (type == "scree") {
     d <- data.frame(component = seq_along(object$correlations), correlation = object$correlations)
     p <- ggplot2::ggplot(d, ggplot2::aes(component, correlation)) +
@@ -52,7 +61,12 @@ theme_cca_publication <- function(base_size = 10, base_family = "", grid = FALSE
       ggplot2::labs(x = "Canonical dimension", y = "Canonical correlation", title = "Canonical correlation profile")
     if (!is.null(bootstrap) && inherits(bootstrap, "cca_bootstrap")) {
       ci <- bootstrap$correlation_ci
-      p <- p + ggplot2::geom_errorbar(data = ci, ggplot2::aes(x = component, ymin = lower, ymax = upper), width = 0.12)
+      ## The CI table carries 'estimate'; the base plot maps 'correlation'.
+      ## Declare the aesthetics without inheriting, so the layer draws.
+      if (!"correlation" %in% names(ci) && "estimate" %in% names(ci)) ci$correlation <- ci$estimate
+      p <- p + ggplot2::geom_errorbar(data = ci, inherit.aes = FALSE,
+                                      ggplot2::aes(x = component, ymin = lower, ymax = upper),
+                                      width = 0.12)
     }
     if (!is.null(permutation) && inherits(permutation, "cca_permutation")) {
       env <- apply(permutation$null, 2, stats::quantile, probs = 0.95, na.rm = TRUE)
@@ -141,6 +155,21 @@ theme_cca_publication <- function(base_size = 10, base_family = "", grid = FALSE
       ggplot2::labs(x=NULL,y=NULL,title=paste0("Cross-block association network |r| >= ",threshold)) + theme_cca_publication()
     return(p)
   }
+  if (type == "communality") {
+    ## Same quantities cca_table(type = "communality") reports, drawn per variable.
+    d <- rbind(data.frame(block = "X", variable = names(object$communality_x),
+                         communality = as.numeric(object$communality_x), row.names = NULL),
+               data.frame(block = "Y", variable = names(object$communality_y),
+                         communality = as.numeric(object$communality_y), row.names = NULL))
+    d <- d[is.finite(d$communality), , drop = FALSE]
+    if (!nrow(d)) .cca_stop("Communalities are unavailable for this fit.")
+    d$variable <- factor(d$variable, levels = d$variable[order(d$communality)])
+    return(ggplot2::ggplot(d, ggplot2::aes(communality, variable, fill = block)) +
+      ggplot2::geom_col(width = 0.7) + ggplot2::facet_grid(block ~ ., scales = "free_y", space = "free_y") +
+      ggplot2::scale_fill_manual(values = c("X" = pal[1], "Y" = pal[2]), guide = "none") +
+      ggplot2::labs(x = "Communality (sum of squared loadings)", y = NULL,
+                    title = "Variable communalities") + theme_cca_publication())
+  }
   if (type == "sparsity") {
     if (is.null(object$weights_x) || is.null(object$weights_y) || nrow(object$weights_x) != object$p || nrow(object$weights_y) != object$q) .cca_stop("Original-variable sparse weights are unavailable.")
     d <- rbind(.cca_long_matrix(object$weights_x, "X", "weight"), .cca_long_matrix(object$weights_y, "Y", "weight"))
@@ -169,9 +198,11 @@ theme_cca_publication <- function(base_size = 10, base_family = "", grid = FALSE
   }
 }
 
-.cca_plot_other <- function(object, type, component = 1, block = "x", top = 20, ...) {
+.cca_plot_other <- function(object, type, component = 1, block = "x", top = 20, quantity = NULL, ...) {
   .cca_require("ggplot2", "cca_plot")
   if (inherits(object, "cca_bootstrap")) {
+    ## Same rule as plot.cca_bootstrap(): an explicit quantity wins over type.
+    if (!is.null(quantity)) type <- quantity
     if (type %in% c("bootstrap", "scree")) {
       d <- object$correlation_ci
       return(ggplot2::ggplot(d, ggplot2::aes(component, estimate)) + ggplot2::geom_point(size=2) +
@@ -184,11 +215,16 @@ theme_cca_publication <- function(base_size = 10, base_family = "", grid = FALSE
     d <- d[d$quantity == quantity & tolower(d$block) == tolower(block) & d$component == paste0("CV",component),,drop=FALSE]
     if (!nrow(d)) .cca_stop("Requested bootstrap quantity is unavailable.")
     sp <- split(d$value, d$variable)
-    sm <- do.call(rbind, lapply(sp, function(z) c(median=stats::median(z,na.rm=TRUE), lower=stats::quantile(z,.025,na.rm=TRUE), upper=stats::quantile(z,.975,na.rm=TRUE))))
-    dd <- data.frame(variable=rownames(sm), sm, row.names=NULL); idx <- .cca_top(dd$median, top); dd <- dd[idx,]
+    sm <- do.call(rbind, lapply(sp, function(z) {
+      q <- unname(stats::quantile(z, c(.025, .975), na.rm = TRUE))
+      c(median = stats::median(z, na.rm = TRUE), lower = q[1], upper = q[2])
+    }))
+    dd <- data.frame(variable = rownames(sm), median = sm[, "median"],
+                     lower = sm[, "lower"], upper = sm[, "upper"], row.names = NULL)
+    idx <- .cca_top(dd$median, top); dd <- dd[idx,]
     dd$variable <- factor(dd$variable, levels=dd$variable[order(dd$median)])
     return(ggplot2::ggplot(dd, ggplot2::aes(median, variable)) + ggplot2::geom_vline(xintercept=0,linewidth=.3) +
-      ggplot2::geom_errorbarh(ggplot2::aes(xmin=lower,xmax=upper),height=.15) + ggplot2::geom_point(size=2) +
+      ggplot2::geom_errorbar(ggplot2::aes(xmin=lower,xmax=upper), orientation="y", width=.15) + ggplot2::geom_point(size=2) +
       ggplot2::labs(x=paste("Bootstrap",gsub("_"," ",quantity)),y=NULL,title=paste("Bootstrap",toupper(block),paste0("CV",component))) + theme_cca_publication())
   }
   if (inherits(object, "cca_validation")) {
@@ -248,6 +284,26 @@ dplyr_safe_isfinite <- function(x) is.finite(x)
 #' Publication-ready plotting dispatcher
 #' @export
 cca_plot <- function(object, type = "scree", ..., interactive = FALSE) {
+  ## Inference and validation objects are served by the same figure helpers as
+  ## the plot() methods; the mapping is done on type only, never by calling
+  ## plot() from here (that would loop back into cca_plot()).
+  rotas <- c(cca_bootstrap = "bootstrap", cca_validation = "validation",
+             cca_permutation = "permutation", cca_comparison = "comparison",
+             cca_robust_comparison = "comparison", cca_tuning = "tuning",
+             cca_stability = "stability")
+  chaves_inferencia <- c("bootstrap", "validation", "permutation", "comparison",
+                         "tuning", "stability")
+  if (!inherits(object, "cca_fit")) {
+    if (identical(type, "scree")) {
+      for (cl in names(rotas)) if (inherits(object, cl)) { type <- unname(rotas[[cl]]); break }
+    }
+  } else if (type %in% chaves_inferencia) {
+    .cca_stop(sprintf(paste0("type '%s' is an inference figure, not a figure of a fitted model. ",
+                            "Build the object first and plot it: ",
+                            "plot(cca_%s(fit, ...)) for bootstrap/validation/permutation, ",
+                            "or plot(cca_compare(...)), plot(cca_tune(...)), plot(cca_stability(...))."),
+             type, if (type %in% c("validation", "permutation")) type else "bootstrap"))
+  }
   p <- if (inherits(object, "cca_fit")) .cca_plot_fit(object, type = type, ...) else .cca_plot_other(object, type = type, ...)
   if (isTRUE(interactive)) {
     .cca_require("plotly", "cca_plot(interactive=TRUE)")
@@ -279,6 +335,10 @@ cca_export <- function(plot, file, preset = c("single", "double", "custom"),
                        width = NULL, height = NULL, units = c("in", "cm", "mm"), dpi = 600,
                        bg = "white", ...) {
   .cca_require("ggplot2", "cca_export")
+  if (inherits(plot, "plotly"))
+    .cca_stop(paste0("cca_export() writes static ggplot figures. A plotly widget cannot be ",
+                     "saved as a static file; build the figure with cca_plot(interactive = FALSE) ",
+                     "or keep the widget for HTML output."))
   preset <- match.arg(preset); units <- match.arg(units)
   ext <- tolower(tools::file_ext(file))
   if (ext == "svg") .cca_require("svglite", "cca_export(file='*.svg')")

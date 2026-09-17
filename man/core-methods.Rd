@@ -39,17 +39,17 @@ cca_kernel(X, Y, kernel = c("rbf", "linear", "polynomial"),
   scale = TRUE, na_action = c("fail", "complete"), tol = 1e-10)
 cca_robust(X, Y, ncomp = NULL,
   engine = c("winsor", "robustbase", "MASS", "auto"),
-  winsor = 4.5, tol = 1e-10)
+  winsor = 4.5, tol = 1e-10, seed = NULL)
 cca_mcd(X, Y, ncomp = NULL, engine = c("auto", "robustbase", "MASS"),
-  tol = 1e-10)
+  tol = 1e-10, seed = NULL)
 cca_robust_sparse(X, Y, ncomp = 1, penalty_x = 0.1, penalty_y = 0.1,
   robust_engine = c("winsor", "robustbase", "MASS", "auto"),
-  winsor = 4.5, max_iter = 200, tol = 1e-7)
+  winsor = 4.5, max_iter = 200, tol = 1e-7, seed = NULL)
 cca_robust_kernel(X, Y, kernel = c("rbf", "linear", "polynomial"),
   gamma_x = NULL, gamma_y = NULL, degree = 2, coef0 = 1,
   lambda_x = 0.1, lambda_y = 0.1, ncomp = 2,
   robust_engine = c("winsor", "robustbase", "MASS", "auto"),
-  winsor = 4.5, tol = 1e-10)
+  winsor = 4.5, tol = 1e-10, seed = NULL)
 }
 \arguments{
 \item{X,Y}{Paired numeric matrices or data frames. Categorical variables must be encoded explicitly or handled by a method designed for mixed data.}
@@ -61,10 +61,11 @@ cca_robust_kernel(X, Y, kernel = c("rbf", "linear", "polynomial"),
 \item{kernel}{Kernel family for kernel CCA.}
 \item{engine}{Numerical engine: internal implementations or optional external engines.}
 \item{groups_x,groups_y}{Group identifiers, one per variable in each block, for group-structured sparse CCA.}
-\item{gamma_x,gamma_y,degree,coef0}{Kernel hyperparameters (RBF scale, polynomial degree and intercept).}
+\item{gamma_x,gamma_y,degree,coef0}{Kernel hyperparameters (RBF scale, polynomial degree and intercept). A large RBF \code{gamma} drives the Gram matrix towards the identity, so the fit interpolates: the training correlation approaches one even when the blocks are independent. Large values therefore require a larger \code{lambda} and an out-of-sample check with \code{\link{cca_validate}}; \code{cca_kernel()} warns when a training correlation lands within \code{1e-4} of the ceiling.}
 \item{robust_engine}{Resistant covariance engine: internal winsorization or optional \pkg{robustbase}/\pkg{MASS}.}
 \item{winsor}{Winsorization bound for the internal resistant engine.}
 \item{max_iter}{Maximum number of iterations for iterative estimators.}
+\item{seed}{Optional integer seed. The MCD engines (\pkg{robustbase}, \pkg{MASS}) draw random subsets; supplying a seed makes the resistant fit reproducible and records it in \code{tuning}. The internal winsor engine is deterministic.}
 \item{tol}{Numerical tolerance.}
 \item{...}{Additional method-specific arguments.}
 }

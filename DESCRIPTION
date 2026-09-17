@@ -1,8 +1,8 @@
 Package: CCAflow
 Type: Package
 Title: Integrated Canonical Correlation and Multiview Association Workflows
-Version: 0.1.0
-Date: 2026-08-14
+Version: 0.1.1
+Date: 2026-09-17
 Authors@R: c(
     person(given = c("Walter", "Esfrain"), family = "Pereira",
            email = "walterufpb@yahoo.com.br", role = c("aut", "cre", "cph"),

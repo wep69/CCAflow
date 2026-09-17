@@ -176,16 +176,19 @@ print.summary.cca_fit <- function(x, ...) {
 #' Predict canonical scores for new paired or single-block data
 #' @export
 predict.cca_fit <- function(object, newdata_x = NULL, newdata_y = NULL, ...) {
+  .cca_check_paired_newdata(newdata_x, newdata_y)
   ans <- list()
   if (!is.null(newdata_x)) {
     X <- .cca_as_matrix(newdata_x, "newdata_x")
-    if (ncol(X) != object$p) .cca_stop("newdata_x has an incompatible number of variables.")
+    if (ncol(X) != object$p)
+      .cca_stop(sprintf("newdata_x has %d variables; the fitted model expects %d.", ncol(X), object$p))
     Xs <- .cca_center_scale(X, center_values = object$center_x, scale_values = object$scale_x)$data
     ans$x <- Xs %*% object$weights_x
   }
   if (!is.null(newdata_y)) {
     Y <- .cca_as_matrix(newdata_y, "newdata_y")
-    if (ncol(Y) != object$q) .cca_stop("newdata_y has an incompatible number of variables.")
+    if (ncol(Y) != object$q)
+      .cca_stop(sprintf("newdata_y has %d variables; the fitted model expects %d.", ncol(Y), object$q))
     Ys <- .cca_center_scale(Y, center_values = object$center_y, scale_values = object$scale_y)$data
     ans$y <- Ys %*% object$weights_y
   }
