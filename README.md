@@ -36,7 +36,7 @@ vignette(package = "CCAflow")
 
 A 10-page cheatsheet (`CCAflow_cheatsheet_10pages_en.pdf`) is distributed separately from the package. It is attached to the GitHub release and can be downloaded here:
 
-[Download CCAflow_cheatsheet_10pages_en.pdf](https://github.com/wep69/CCAflow/releases/download/v0.1.0/CCAflow_cheatsheet_10pages_en.pdf)
+[Download CCAflow_cheatsheet_10pages_en.pdf](https://github.com/wep69/CCAflow/releases/download/v0.1.1/CCAflow_cheatsheet_10pages_en.pdf)
 
 ## Implemented families
 
@@ -141,7 +141,9 @@ to inspect which optional engines are available locally. The core package does n
 
 ## Validation status
 
-CCAflow 0.1.0 has passed the complete local validation protocol on Windows with R 4.6.0: full unit-test suite, numerical cross-checks against `stats::cancor()`, method-family tests (high-dimensional, resistant, nonlinear, multiblock, Bayesian, deep), resampling and dependence-aware validation, publication outputs, tours, all vignettes, `R CMD build`, and `R CMD check --as-cran` with 0 ERRORs and 0 WARNINGs. Cross-platform checks on the official remote builders passed as well: win-builder on current R-release and R-devel (0 ERRORs, 0 WARNINGs, 2 NOTEs documented as new-submission and example-timing) and mac-builder on macOS arm64 (Status OK: 0 errors, 0 warnings, 0 notes).
+CCAflow 0.1.0 passed the complete local validation protocol on Windows with R 4.6.0: full unit-test suite, numerical cross-checks against `stats::cancor()`, method-family tests (high-dimensional, resistant, nonlinear, multiblock, Bayesian, deep), resampling and dependence-aware validation, publication outputs, tours, all vignettes, `R CMD build`, and `R CMD check --as-cran` with 0 ERRORs and 0 WARNINGs. Cross-platform checks on the official remote builders passed as well: win-builder on current R-release and R-devel (0 ERRORs, 0 WARNINGs, 2 NOTEs documented as new-submission and example-timing) and mac-builder on macOS arm64 (Status OK: 0 errors, 0 warnings, 0 notes).
+
+CCAflow 0.1.1 carries the corrections of the nine defects reported by an independent, execution-verified audit of the package API (see `NEWS.md`). Every correction has a regression test; on this version the local `R CMD check --as-cran` reports 0 ERRORs, 0 WARNINGs and the same 2 NOTEs, and the test suite reports 105 successes with 0 failures. Remote-builder checks for 0.1.1 are pending; the 0.1.0 results above remain the reference for the shared code base.
 
 ## Methodological safeguards
 
