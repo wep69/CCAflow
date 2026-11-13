@@ -1,11 +1,13 @@
 \name{cca_audit}
-\alias{cca_audit}\alias{cca_diagnose}\alias{cca_recommend}\alias{cca_robust_compare}
+\alias{cca_audit}\alias{cca_diagnose}\alias{cca_weight_diagnostics}\alias{cca_recommend}\alias{cca_robust_compare}
 \alias{cca_set_metadata}\alias{cca_version_info}\alias{cca_prepare}
 \title{Data audit, diagnostics, method recommendation and provenance}
-\description{Inspect dimensionality, numerical conditioning, missingness and potential influence before interpreting canonical correlations.}
+\description{Inspect dimensionality, numerical conditioning, missingness, intra-block VIF, weight-vs-loading suppressor inversions and potential influence before interpreting canonical correlations.}
 \usage{
 cca_audit(X, Y, near_cor = 0.95)
 cca_diagnose(object, cutoff = 0.975)
+cca_weight_diagnostics(object, components = NULL, min_abs = 0.05,
+  weight_inflation = 0.85, labels = NULL, ridge_eps = 1e-4)
 cca_recommend(X, Y, nonlinear = FALSE, mixed = FALSE,
   functional = FALSE, multiblock = FALSE, outliers = NULL)
 cca_robust_compare(X, Y, ncomp = NULL, robust_engine = "winsor", ...)
@@ -20,6 +22,11 @@ cca_prepare(X, Y, center = TRUE, scale = TRUE,
 \item{object}{A fitted object.}
 \item{near_cor}{Correlation threshold above which pairs of variables are reported as nearly collinear.}
 \item{cutoff}{Quantile of the chi-square reference distribution used to flag observations.}
+\item{components}{Integer vector of canonical components to inspect (defaults to up to 4).}
+\item{min_abs}{Minimum absolute coefficient magnitude before flagging sign reversal between weight and loading.}
+\item{weight_inflation}{Threshold on absolute standardized canonical weight above which collinear inflation is flagged.}
+\item{labels}{Optional named character vector mapping variable names to display labels.}
+\item{ridge_eps}{Minimal diagonal regularization added when computing intra-block VIF on singular or rank-deficient correlation matrices.}
 \item{nonlinear,mixed,functional,multiblock,outliers}{Scientifically motivated characteristics used to generate recommendations.}
 \item{ncomp}{Number of canonical components retained in the compared fits.}
 \item{robust_engine}{Resistant covariance engine forwarded to \code{cca_robust()}.}
@@ -48,6 +55,27 @@ dg <- cca_diagnose(cca_robust(out$X, out$Y))
 head(dg$data)
 dg <- cca_diagnose(cca_kernel(nm$X, nm$Y, ncomp = 2))
 head(dg$data)
+
+## cca_weight_diagnostics ---------------------------------------------------
+wd <- cca_weight_diagnostics(cca_classic(d$X, d$Y, ncomp = 2))
+print(wd)
+head(wd$table)
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  plot(wd)
+}
+
+fit_hd_wd <- cca_ridge(hd$X, hd$Y, lambda_x = 0.2, lambda_y = 0.2, ncomp = 2)
+wd_hd <- cca_weight_diagnostics(fit_hd_wd, components = 1:2)
+head(wd_hd$table)
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  plot(wd_hd)
+}
+
+wd_mt <- cca_weight_diagnostics(
+  cca_classic(mtcars[, 1:3], mtcars[, 4:6], ncomp = 2),
+  weight_inflation = 0.7
+)
+print(wd_mt)
 
 ## cca_recommend ------------------------------------------------------------
 cca_recommend(d$X, d$Y, nonlinear = TRUE)$recommendations

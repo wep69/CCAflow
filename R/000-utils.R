@@ -342,3 +342,56 @@
 .cca_top <- function(x, n = 15L) {
   if (length(x) <= n) seq_along(x) else order(abs(x), decreasing = TRUE)[seq_len(n)]
 }
+
+# Variable-level weight and collinearity helpers ----------------------------
+
+.cca_has_orig_weights <- function(object, block = c("both", "x", "y")) {
+  block <- match.arg(block)
+  ok_x <- !is.null(object$weights_x) && nrow(object$weights_x) == object$p
+  ok_y <- !is.null(object$weights_y) && nrow(object$weights_y) == object$q
+  switch(block, x = ok_x, y = ok_y, both = ok_x && ok_y)
+}
+
+.cca_assert_orig_weights <- function(object, block = c("both", "x", "y"),
+                                     feature = "This figure") {
+  block <- match.arg(block)
+  if (!.cca_has_orig_weights(object, block)) {
+    .cca_stop(sprintf(paste0(
+      "%s requires original-variable canonical weights (weights_x / weights_y ",
+      "matching p and q). Kernel and latent-feature models without direct ",
+      "original-variable weights cannot draw this display."
+    ), feature))
+  }
+  invisible(TRUE)
+}
+
+.cca_resolve_components <- function(object, components = NULL, max_default = 4L) {
+  m <- length(object$correlations)
+  if (is.null(components)) return(seq_len(min(as.integer(max_default), m)))
+  k <- as.integer(components)
+  k <- k[is.finite(k) & k >= 1L & k <= m]
+  if (!length(k)) .cca_stop(sprintf("components must select indices between 1 and %d.", m))
+  unique(k)
+}
+
+# Block-wise VIF using regularized correlation inverse when rank-deficient or singular
+.cca_block_vif <- function(Z, ridge_eps = 1e-4, tol = 1e-10) {
+  Z <- as.matrix(Z)
+  vnames <- colnames(Z) %||% paste0("V", seq_len(ncol(Z)))
+  if (ncol(Z) < 2L) return(stats::setNames(rep(1, ncol(Z)), vnames))
+  R <- suppressWarnings(stats::cor(Z, use = "pairwise.complete.obs"))
+  if (!all(is.finite(R))) {
+    R[!is.finite(R)] <- 0
+    diag(R) <- 1
+  }
+  R <- (R + t(R)) / 2
+  ev <- eigen(R, symmetric = TRUE, only.values = TRUE)$values
+  cond_bad <- min(ev) <= max(ev, 1) * tol || (nrow(Z) <= ncol(Z))
+  if (cond_bad && ridge_eps > 0) {
+    R_inv <- .cca_safe_solve(R + ridge_eps * diag(ncol(R)), tol = tol)
+  } else {
+    R_inv <- .cca_safe_solve(R, tol = tol)
+  }
+  vif <- pmax(as.numeric(diag(R_inv)), 1)
+  stats::setNames(vif, vnames)
+}

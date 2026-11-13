@@ -1,3 +1,11 @@
+# CCAflow 0.2.0
+
+- Added `cca_weight_diagnostics()` (with `print()` and `plot()` S3 methods) to compare standardized weights against canonical loadings and cross-loadings, quantify block VIF (with automatic ridge regularization when collinear or high-dimensional), and flag sign inversions and suppressor variables.
+- Added seven bipolar weight-participation visualizations to `cca_plot()` (`"suppressor"`, `"bipolar_lollipop"`, `"weight_vs_loading"` / `"tornado"`, `"synoptic_heatmap"`, `"heliograph"`, `"bipolar_balance"`, and `"heliograph_panel"` via optional `patchwork`), plus optional label collision avoidance via `ggrepel`.
+- Extended `cca_plot()` for `"coefficients"`, `"sparsity"`, and `cca_bootstrap` objects with `components`, `block = c("x", "y", "both")`, `style = c("dot", "lollipop")`, `polarity_color`, `sparsity_mode`, `highlight_zero`, `variable_labels`, `vif_cap`, `squish`, `order_by_component`, and `metric` arguments.
+- Added `cca_table(fit, "participation")` and `cca_report(..., extra_figures = FALSE)` (`extra_figures = TRUE` exports `bipolar_lollipop`, `suppressor`, and `synoptic_heatmap`).
+- Enforced explicit guardrails rejecting kernel models for original-variable weight diagnostics and rejecting `interactive = TRUE` for polar heliograph plots.
+
 # CCAflow 0.1.1
 
 Corrections reported by the audited tutorial study (see the study's

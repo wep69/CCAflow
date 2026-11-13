@@ -68,6 +68,7 @@ Version 0.1.0 development source. The API is grouped by scientific purpose rathe
 - `cca_bootstrap_grouped()` cluster bootstrap.
 - `cca_stability()` bootstrap variable-selection stability.
 - `cca_select_components()` Wilks, permutation, or CV-based dimension selection.
+- `cca_weight_diagnostics()` weight-versus-loading sign discrepancy, suppressor detection, and regularized block VIF diagnostics.
 
 ## Validation, tuning, and comparison
 
@@ -95,12 +96,12 @@ Version 0.1.0 development source. The API is grouped by scientific purpose rathe
 
 ## Publication and reporting
 
-- `cca_plot()` publication-ready plotting dispatcher.
+- `cca_plot()` publication-ready plotting dispatcher (including `suppressor`, `bipolar_lollipop`, `weight_vs_loading`, `tornado`, `synoptic_heatmap`, `heliograph`, `bipolar_balance`, `heliograph_panel`, and multi-component/polarity options for `coefficients`, `sparsity`, and `cca_bootstrap`).
 - `theme_cca_publication()` editable journal-style ggplot theme.
 - `cca_palette()` accessible color/grayscale palette.
 - `cca_export()` vector/high-resolution figure export.
-- `cca_table()` standardized publication tables and export.
-- `cca_report()` reproducible Markdown/HTML/Word analysis report.
+- `cca_table()` standardized publication tables and export (including `"participation"` for weights, loadings, cross-loadings, VIF, and suppressor flags).
+- `cca_report()` reproducible Markdown/HTML/Word analysis report (with optional `extra_figures = TRUE` for bipolar and suppressor diagnostics).
 
 The package also registers prediction, print, summary, plot, tuning, multiblock, validation, and bootstrap S3 methods.
 

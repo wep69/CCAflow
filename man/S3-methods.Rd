@@ -1,7 +1,7 @@
 \name{predict.cca_fit}
 \alias{predict.cca_fit}\alias{predict.cca_rank}\alias{predict.cca_copula}\alias{predict.cca_kernel}\alias{predict.cca_robust_kernel}\alias{predict.cca_deep}\alias{predict.cca_zoo}
 \alias{print.cca_fit}\alias{summary.cca_fit}\alias{print.summary.cca_fit}\alias{print.cca_multiblock}\alias{print.cca_audit}\alias{print.cca_inference}
-\alias{print.cca_validation}\alias{print.cca_tuning}\alias{print.cca_nested_cv}\alias{print.cca_comparison}\alias{print.cca_tour}\alias{print.cca_grand_tour}\alias{plot.cca_grand_tour}\alias{print.cca_teaching_lab}
+\alias{print.cca_validation}\alias{print.cca_tuning}\alias{print.cca_nested_cv}\alias{print.cca_comparison}\alias{print.cca_tour}\alias{print.cca_grand_tour}\alias{plot.cca_grand_tour}\alias{print.cca_teaching_lab}\alias{print.cca_weight_diagnostics}\alias{plot.cca_weight_diagnostics}
 \alias{plot.cca_fit}\alias{plot.cca_robust_comparison}\alias{plot.cca_bootstrap}\alias{plot.cca_validation}\alias{plot.cca_permutation}\alias{plot.cca_comparison}\alias{plot.cca_tuning}\alias{plot.cca_stability}\alias{plot.cca_tour}
 \title{S3 methods for CCAflow objects}
 \description{Prediction, printing, summarization and plotting methods used by CCAflow object classes.}
@@ -173,9 +173,18 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
 
 ## plot.cca_fit ---------------------------------------------------------------
 if (requireNamespace("ggplot2", quietly = TRUE)) {
-  plot(cca_classic(d$X, d$Y, ncomp = 2), type = "scree")
+  fit_s3 <- cca_classic(d$X, d$Y, ncomp = 2)
+  fit_s3_hd <- cca_ridge(hd$X, hd$Y, lambda_x = 0.2, lambda_y = 0.2, ncomp = 2)
+  plot(fit_s3, type = "scree")
   plot(cca_classic(iris[, 1:2], iris[, 3:4], ncomp = 2), type = "scores")
   plot(cca_classic(mtcars[, 1:3], mtcars[, 4:6], ncomp = 2), type = "circle")
+  plot(fit_s3, type = "suppressor", components = 1:2)
+  plot(fit_s3_hd, type = "suppressor", components = 1:2, vif_cap = 20)
+  plot(fit_s3, type = "bipolar_lollipop", components = 1:2)
+  plot(fit_s3_hd, type = "tornado", components = 1:2, top = 8)
+  plot(fit_s3, type = "synoptic_heatmap", components = 1:2)
+  plot(fit_s3, type = "heliograph", component = 1)
+  plot(fit_s3_hd, type = "bipolar_balance", components = 1:2)
 }
 
 ## plot.cca_robust_comparison -------------------------------------------------
@@ -191,9 +200,11 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
   plot(bt)
   plot(bt, quantity = "loading", block = "x")
   plot(bt, quantity = "cross_loading", block = "y")
+  plot(bt, quantity = "weight", block = "both", highlight_zero = TRUE)
 
+  bt_mt <- cca_bootstrap(cca_classic(mtcars[, 1:3], mtcars[, 4:6], ncomp = 2), B = 19, seed = 1)
   plot(cca_bootstrap(cca_classic(iris[, 1:2], iris[, 3:4], ncomp = 2), B = 19, seed = 1))
-  plot(cca_bootstrap(cca_classic(mtcars[, 1:3], mtcars[, 4:6], ncomp = 2), B = 19, seed = 1))
+  plot(bt_mt, quantity = "weight", block = "both", highlight_zero = TRUE, grayscale = TRUE)
 }
 
 ## plot.cca_validation --------------------------------------------------------
@@ -242,5 +253,18 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
   plot(cca_tour(cca_classic(d$X, d$Y, ncomp = 2), frames = 12))
   plot(cca_tour(cca_classic(iris[, 1:2], iris[, 3:4], ncomp = 2), frames = 12))
   plot(cca_tour(cca_classic(lin$X, lin$Y, ncomp = 2), frames = 12))
+}
+
+## print.cca_weight_diagnostics / plot.cca_weight_diagnostics -----------------
+wd1 <- cca_weight_diagnostics(cca_classic(d$X, d$Y, ncomp = 2))
+print(wd1)
+wd2 <- cca_weight_diagnostics(cca_ridge(hd$X, hd$Y, lambda_x = 0.2, lambda_y = 0.2, ncomp = 2))
+print(wd2)
+wd3 <- cca_weight_diagnostics(cca_classic(iris[, 1:2], iris[, 3:4], ncomp = 2))
+print(wd3)
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  plot(wd1)
+  plot(wd2)
+  plot(wd3)
 }
 }

@@ -348,3 +348,121 @@ cca_select_components <- function(object, method = c("wilks", "permutation", "cv
   list(method = method, ncomp = ncomp, evidence = sm, cv_conf = cv_conf,
        note = "CV component selection is a generalization heuristic, not a formal hypothesis test.")
 }
+
+#' Canonical weights, loadings and collinearity suppressor diagnostics
+#'
+#' Computes a unified variable-level diagnostic table combining intra-block
+#' structure coefficients, cross-loadings, standardized canonical weights,
+#' block-wise variance inflation factors (VIF), suppressor sign inversions and
+#' bipolar variance energy across canonical pairs.
+#' @export
+cca_weight_diagnostics <- function(object, components = NULL, min_abs = 0.05,
+                                   weight_inflation = 0.85, labels = NULL,
+                                   ridge_eps = 1e-4) {
+  if (!inherits(object, "cca_fit")) .cca_stop("object must inherit from 'cca_fit'.")
+  comps <- .cca_resolve_components(object, components, max_default = 4L)
+  has_w <- .cca_has_orig_weights(object, "both")
+
+  vif_x <- .cca_block_vif(object$Xs, ridge_eps = ridge_eps)
+  vif_y <- .cca_block_vif(object$Ys, ridge_eps = ridge_eps)
+
+  map_label <- function(vnames) {
+    if (is.null(labels)) return(vnames)
+    hit <- unname(labels[vnames])
+    ifelse(is.na(hit) | !nzchar(hit), vnames, hit)
+  }
+
+  axis_lvls <- vapply(comps, function(k) {
+    sprintf("CV%d (rho = %.4f)", k, object$correlations[k])
+  }, character(1))
+
+  rows <- vector("list", length(comps) * 2L)
+  pos <- 1L
+  for (ii in seq_along(comps)) {
+    k <- comps[ii]
+    for (blk in c("X", "Y")) {
+      L <- if (blk == "X") object$loadings_x[, k] else object$loadings_y[, k]
+      C <- if (blk == "X") object$cross_loadings_x[, k] else object$cross_loadings_y[, k]
+      M_ref <- if (blk == "X") object$loadings_x else object$loadings_y
+      vnames <- names(L) %||% rownames(M_ref) %||% paste0(tolower(blk), seq_along(L))
+      W <- if (has_w) {
+        as.numeric(if (blk == "X") object$weights_x[, k] else object$weights_y[, k])
+      } else {
+        rep(NA_real_, length(L))
+      }
+      vif_blk <- if (blk == "X") as.numeric(vif_x[vnames]) else as.numeric(vif_y[vnames])
+      inv_flag <- if (has_w) {
+        (sign(W) != sign(L)) & (abs(W) >= min_abs | abs(L) >= min_abs)
+      } else {
+        rep(FALSE, length(L))
+      }
+      inf_flag <- if (has_w) abs(W) > weight_inflation else rep(FALSE, length(L))
+
+      rows[[pos]] <- data.frame(
+        variable = vnames,
+        label = map_label(vnames),
+        block = blk,
+        component = paste0("CV", k),
+        component_index = k,
+        component_label = axis_lvls[ii],
+        loading = as.numeric(L),
+        cross_loading = as.numeric(C),
+        weight = W,
+        vif = vif_blk,
+        polarity_loading = ifelse(L >= 0, "Positive (+)", "Negative (-)"),
+        polarity_weight = if (has_w) ifelse(W >= 0, "Positive (+)", "Negative (-)") else NA_character_,
+        suppressor = inv_flag,
+        collinear_inflation = inf_flag,
+        stringsAsFactors = FALSE
+      )
+      pos <- pos + 1L
+    }
+  }
+
+  tab <- do.call(rbind, rows)
+  tab$block <- factor(tab$block, levels = c("X", "Y"))
+  tab$component <- factor(tab$component, levels = paste0("CV", comps))
+  tab$component_label <- factor(tab$component_label, levels = axis_lvls)
+  tab$polarity_loading <- factor(tab$polarity_loading, levels = c("Positive (+)", "Negative (-)"))
+
+  summary_energy <- do.call(rbind, lapply(split(tab, list(tab$component, tab$block)), function(sub) {
+    pos_idx <- sub$loading > 0
+    neg_idx <- sub$loading < 0
+    data.frame(
+      component = as.character(sub$component[1]),
+      block = as.character(sub$block[1]),
+      n_positive = sum(pos_idx, na.rm = TRUE),
+      n_negative = sum(neg_idx, na.rm = TRUE),
+      energy_positive = sum(sub$loading[pos_idx]^2, na.rm = TRUE),
+      energy_negative = sum(sub$loading[neg_idx]^2, na.rm = TRUE),
+      max_abs_weight = if (has_w) max(abs(sub$weight), na.rm = TRUE) else NA_real_,
+      suppressors = paste(sub$variable[sub$suppressor], collapse = ", "),
+      stringsAsFactors = FALSE
+    )
+  }))
+  rownames(summary_energy) <- NULL
+
+  out <- list(
+    table = tab,
+    summary = summary_energy,
+    vif = list(X = vif_x, Y = vif_y),
+    has_weights = has_w,
+    thresholds = list(min_abs = min_abs, weight_inflation = weight_inflation),
+    fit = object
+  )
+  class(out) <- "cca_weight_diagnostics"
+  out
+}
+
+#' @export
+print.cca_weight_diagnostics <- function(x, ...) {
+  cat("CCAflow variable participation and weight diagnostics\n")
+  cat("Original-variable weights available:", x$has_weights, "\n")
+  print(x$summary, row.names = FALSE)
+  invisible(x)
+}
+
+#' @export
+plot.cca_weight_diagnostics <- function(x, type = "suppressor", ...) {
+  cca_plot(x$fit, type = type, ...)
+}

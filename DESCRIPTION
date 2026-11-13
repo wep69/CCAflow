@@ -1,8 +1,8 @@
 Package: CCAflow
 Type: Package
 Title: Integrated Canonical Correlation and Multiview Association Workflows
-Version: 0.1.1
-Date: 2026-09-17
+Version: 0.2.0
+Date: 2026-11-13
 Authors@R: c(
     person(given = c("Walter", "Esfrain"), family = "Pereira",
            email = "walterufpb@yahoo.com.br", role = c("aut", "cre", "cph"),
@@ -45,6 +45,8 @@ Suggests:
     MASS,
     Matrix,
     ggplot2,
+    ggrepel,
+    patchwork,
     plotly,
     tourr,
     spinifex,

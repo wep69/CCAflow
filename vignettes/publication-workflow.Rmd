@@ -17,9 +17,17 @@ A manuscript-ready analysis should report fit, interpretation, uncertainty/stabi
 d <- cca_agri_data(seed=15)
 fit <- cca_ridge(d$X,d$Y,.15,.15,ncomp=3)
 cv <- cca_validate(d$X,d$Y,"ridge",list(lambda_x=.15,lambda_y=.15,ncomp=3),folds=5,repeats=2,seed=15)
+diag_w <- cca_weight_diagnostics(fit, components = 1:2)
 cca_plot(fit,"dual_circle")
+cca_plot(fit,"bipolar_lollipop", components = 1:2, block = "both")
+cca_plot(fit,"suppressor", components = 1)
+cca_plot(fit,"tornado", components = 1, block = "both")
+cca_plot(fit,"synoptic_heatmap", components = 1:3)
+cca_plot(fit,"heliograph", components = 1)
+cca_plot(fit,"bipolar_balance", components = 1)
 cca_plot(cv)
 cca_table(fit,"cross_loadings")
+cca_table(fit,"participation")
 ```
 
-Use vector PDF/SVG where possible and TIFF/PNG at appropriate journal resolution with `cca_export()`.
+Use vector PDF/SVG where possible and TIFF/PNG at appropriate journal resolution with `cca_export()`, or bundle standard and bipolar participation diagnostics via `cca_report(fit, extra_figures = TRUE)`.

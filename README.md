@@ -94,7 +94,7 @@ A 10-page cheatsheet (`CCAflow_cheatsheet_10pages_en.pdf`) is distributed separa
 
 ### Publication-ready output
 
-`cca_plot()` produces editable `ggplot2` objects (canonical-correlation profiles, score plots, dual correlation circles, biplots, redundancy plots, cross-block heatmaps, association networks, sparsity maps, bootstrap intervals, validation distributions, permutation nulls, influence plots, method comparisons, and hyperparameter-search plots). `cca_export()` exports vector PDF/SVG or high-resolution raster files, and `cca_table()` produces standardized tables exportable as Markdown, LaTeX, HTML, CSV, or Word. `cca_report()` generates a reproducible analysis report.
+`cca_plot()` produces editable `ggplot2` objects (canonical-correlation profiles, score plots, dual correlation circles, biplots, redundancy plots, cross-block heatmaps, association networks, sparsity maps, weight-versus-loading suppressor maps, bipolar lollipops, tornado plots, synoptic multi-dimensional heatmaps, polar heliographs, bipolar balance charts, bootstrap intervals with zero-crossing highlighting, validation distributions, permutation nulls, influence plots, method comparisons, and hyperparameter-search plots). `cca_weight_diagnostics()` and `cca_table(fit, "participation")` summarize standardized weights, loadings, cross-loadings, variance inflation factors, and suppressor flags, while `cca_report(..., extra_figures = TRUE)` exports these extra diagnostic figures alongside the standard report. `cca_export()` exports vector PDF/SVG or high-resolution raster files, and `cca_table()` produces standardized tables exportable as Markdown, LaTeX, HTML, CSV, or Word. `cca_report()` generates a reproducible analysis report.
 
 ## Minimal example
 

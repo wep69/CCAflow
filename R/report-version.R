@@ -4,7 +4,7 @@
 #' @export
 cca_version_info <- function() {
   pkgs <- c("CCA","CCP","PMA","RGCCA","mixedCCA","multiCCA","corpcor","robustbase","MASS",
-            "ggplot2","plotly","tourr","spinifex","gganimate","rstan","posterior","reticulate","caret","flextable","officer","rmarkdown")
+            "ggplot2","ggrepel","patchwork","plotly","tourr","spinifex","gganimate","rstan","posterior","reticulate","caret","flextable","officer","rmarkdown")
   ver <- vapply(pkgs,function(p) if(requireNamespace(p,quietly=TRUE)) as.character(utils::packageVersion(p)) else NA_character_,character(1))
   out <- data.frame(package=pkgs,available=!is.na(ver),version=ver,stringsAsFactors=FALSE)
   py_available <- FALSE; py_version <- NA_character_
@@ -76,7 +76,8 @@ cca_report <- function(object, file = "cca_report.md",
                        format = c("markdown","html","word"),
                        bootstrap = NULL, validation = NULL, permutation = NULL,
                        title = "Canonical Correlation Analysis Report",
-                       include_figures = TRUE, quiet = TRUE) {
+                       include_figures = TRUE, quiet = TRUE,
+                       extra_figures = FALSE) {
   if(!inherits(object,"cca_fit")) .cca_stop("object must inherit from 'cca_fit'.")
   format <- match.arg(format)
   md <- .cca_report_markdown(object,bootstrap,validation,permutation,title)
@@ -85,10 +86,17 @@ cca_report <- function(object, file = "cca_report.md",
     .cca_require("ggplot2","cca_report(include_figures=TRUE)")
     figdir <- file.path(outdir,paste0(tools::file_path_sans_ext(basename(file)),"_figures")); dir.create(figdir,showWarnings=FALSE,recursive=TRUE)
     figs <- list(scree=cca_plot(object,"scree",bootstrap=bootstrap,permutation=permutation),scores=cca_plot(object,"scores"),redundancy=cca_plot(object,"redundancy"))
+    if (isTRUE(extra_figures)) {
+      figs$bipolar_lollipop <- cca_plot(object, "bipolar_lollipop")
+      if (.cca_has_orig_weights(object, "both")) {
+        figs$suppressor <- cca_plot(object, "suppressor")
+        figs$synoptic_heatmap <- cca_plot(object, "synoptic_heatmap")
+      }
+    }
     links <- character()
     for(nm in names(figs)) {
       fn <- file.path(figdir,paste0(nm,".png")); cca_export(figs[[nm]],fn,preset="double",dpi=600)
-      links <- c(links,paste0("### ",tools::toTitleCase(nm),"\n\n![](",basename(figdir),"/",basename(fn),")"))
+      links <- c(links,paste0("### ",tools::toTitleCase(gsub("_"," ",nm)),"\n\n![](",basename(figdir),"/",basename(fn),")"))
     }
     md <- paste(md,"\n\n## Figures\n\n",paste(links,collapse="\n\n"))
   }

@@ -25,9 +25,9 @@
 `cca_gcca()` | `cca_rgcca()` | `cca_sgcca()` | `cca_kernel_gcca()`
 
 ## 9. Infer, validate and compare
-`cca_infer()` | `cca_permutation()` | `cca_bootstrap()` | `cca_validate()` | `cca_nested_cv()` | `cca_compare()`
+`cca_infer()` | `cca_permutation()` | `cca_bootstrap()` | `cca_weight_diagnostics()` | `cca_validate()` | `cca_nested_cv()` | `cca_compare()`
 
 ## 10. Teach and publish
-`cca_teach()` | `cca_tour()` | `cca_tour_render()` | `cca_explorer()` | `cca_plot()` | `cca_table()` | `cca_export()` | `cca_report()`
+`cca_teach()` | `cca_tour()` | `cca_tour_render()` | `cca_explorer()` | `cca_plot()` (`suppressor`, `bipolar_lollipop`, `tornado`, `synoptic_heatmap`, `heliograph`, `bipolar_balance`, `heliograph_panel`) | `cca_table()` (`"participation"`) | `cca_export()` | `cca_report(..., extra_figures = TRUE)`
 
 **Interpretation rule:** report canonical correlation together with loadings, cross-loadings, redundancy, uncertainty/stability and out-of-sample association. Do not select an estimator by training correlation alone.
